@@ -23,5 +23,8 @@
   "bugs": {
     "url": "https://github.com/brekk/auteur/issues"
   },
-  "homepage": "https://github.com/brekk/auteur"
+  "homepage": "https://github.com/brekk/auteur",
+  "dependencies": {
+    "lodash": "^2.4.1"
+  }
 }
