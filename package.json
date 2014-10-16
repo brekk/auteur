@@ -1,0 +1,19 @@
+{
+  "name": "auteur",
+  "version": "0.0.1",
+  "description": "auteur is the management interface for automating and generating raconteur instances.",
+  "main": "auteur.js",
+  "scripts": {
+    "test": "mocha --reporter spec"
+  },
+  "keywords": [
+    "auteur",
+    "raconteur",
+    "cli",
+    "automator",
+    "manager",
+    "instance"
+  ],
+  "author": "Brekk Bockrath",
+  "license": "ISC"
+}
