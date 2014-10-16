@@ -15,5 +15,13 @@
     "instance"
   ],
   "author": "Brekk Bockrath",
-  "license": "ISC"
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:brekk/auteur.git"
+  },
+  "bugs": {
+    "url": "https://github.com/brekk/auteur/issues"
+  },
+  "homepage": "https://github.com/brekk/auteur"
 }
