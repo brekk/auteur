@@ -9,6 +9,11 @@
     events = require 'events'
     emitter = new events.EventEmitter()
 
+    promise = require 'promised-io'
+    Deferred = promise.Deferred
+
+    fs = require 'promised-io/fs'
+
     ###*
     * The Auteur is the automaton that manages the differences between different implementations.
     * It behaves as a singleton (per thread/process), and is modeled after gulp and winston.
@@ -96,6 +101,7 @@
             return true
         return false
 
+    # if there's a hidden property, use this function to find it
     __lookupHidden = (key)->
         if __hiddenContext[key]?
             return __hiddenContext[key]
@@ -209,6 +215,34 @@
 
     __private '_testBookmark', ()->
         console.log "testBookmark", arguments
+
+    __private '_spiderDirectory', (location)->
+        d = new Deferred()
+        d.yay = _.once d.resolve
+        d.nay = _.once d.reject
+        failHook = (e)->
+            d.nay e
+        path = fs.absolute location
+        fs.stat(path).then (stats)->
+            unless stats.isDirectory()
+                d.nay new Error "Expected to be given a directory."
+            fs.readdir(path).then (files)->
+                simple = {}
+                _(files).each (file)->
+                    local = {
+                        stat: fs.stat(file)
+                    }
+                    simple[file] = local
+
+                d.yay simple
+            , failHook
+        , failHook
+
+
+        return d
+
+
+
 
     return exports
 

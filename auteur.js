@@ -5,10 +5,13 @@
   /*
   DEPENDENCIES
    */
-  var auteur, capitalize, classConstants, define, emitter, events, _, __constant, __hidden, __hiddenContext, __lookupHidden, __mutable, __private, __protected, __public, __writable;
+  var Deferred, auteur, capitalize, classConstants, define, emitter, events, fs, promise, _, __constant, __hidden, __hiddenContext, __lookupHidden, __mutable, __private, __protected, __public, __writable;
   _ = require('lodash');
   events = require('events');
   emitter = new events.EventEmitter();
+  promise = require('promised-io');
+  Deferred = promise.Deferred;
+  fs = require('promised-io/fs');
 
   /**
   * The Auteur is the automaton that manages the differences between different implementations.
@@ -213,6 +216,34 @@
   });
   __private('_testBookmark', function() {
     return console.log("testBookmark", arguments);
+  });
+  __private('_spiderDirectory', function(location) {
+    var d, failHook, path;
+    d = new Deferred();
+    d.yay = _.once(d.resolve);
+    d.nay = _.once(d.reject);
+    failHook = function(e) {
+      return d.nay(e);
+    };
+    path = fs.absolute(location);
+    fs.stat(path).then(function(stats) {
+      if (!stats.isDirectory()) {
+        d.nay(new Error("Expected to be given a directory."));
+      }
+      return fs.readdir(path).then(function(files) {
+        var simple;
+        simple = {};
+        _(files).each(function(file) {
+          var local;
+          local = {
+            stat: fs.stat(file)
+          };
+          return simple[file] = local;
+        });
+        return d.yay(simple);
+      }, failHook);
+    }, failHook);
+    return d;
   });
   return exports;
 }).call(this);

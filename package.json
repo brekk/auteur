@@ -26,6 +26,7 @@
   "homepage": "https://github.com/brekk/auteur",
   "dependencies": {
     "lodash": "^2.4.1",
-    "pkginfo": "^0.3.0"
+    "pkginfo": "^0.3.0",
+    "promised-io": "^0.3.4"
   }
 }
