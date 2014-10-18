@@ -11,7 +11,7 @@
   emitter = new events.EventEmitter();
   promise = require('promised-io');
   Deferred = promise.Deferred;
-  fs = require('promised-io/fs');
+  fs = require('fs');
 
   /**
   * The Auteur is the automaton that manages the differences between different implementations.
@@ -217,32 +217,71 @@
   __private('_testBookmark', function() {
     return console.log("testBookmark", arguments);
   });
-  __private('_spiderDirectory', function(location) {
-    var d, failHook, path;
+  __private('_spiderDirectory', function(location, exclude, announce) {
+    var absolutePathWalk, d, self, walk;
+    self = this;
+    if (exclude == null) {
+      exclude = [];
+    }
+    if (announce == null) {
+      announce = [];
+    }
     d = new Deferred();
     d.yay = _.once(d.resolve);
     d.nay = _.once(d.reject);
-    failHook = function(e) {
-      return d.nay(e);
-    };
-    path = fs.absolute(location);
-    fs.stat(path).then(function(stats) {
-      if (!stats.isDirectory()) {
-        d.nay(new Error("Expected to be given a directory."));
-      }
-      return fs.readdir(path).then(function(files) {
-        var simple;
-        simple = {};
-        _(files).each(function(file) {
-          var local;
-          local = {
-            stat: fs.stat(file)
-          };
-          return simple[file] = local;
+    walk = function(dir, done) {
+      var results;
+      results = [];
+      return fs.readdir(dir, function(err, list) {
+        var pending;
+        if (err) {
+          return done(err);
+        }
+        list = _.pull.apply(_, [list].concat(exclude));
+        pending = list.length;
+        if (!pending) {
+          return done(null, results);
+        }
+        return _(list).each(function(file) {
+          var filename;
+          filename = file;
+          file = "" + dir + "/" + file;
+          return fs.stat(file, function(err, stat) {
+            if (_.contains(announce, filename)) {
+              self.emit('fileMatch', filename);
+            }
+            if (stat != null ? typeof stat.isDirectory === "function" ? stat.isDirectory() : void 0 : void 0) {
+              return walk(file, function(err, res) {
+                if (err != null) {
+                  return done(err);
+                }
+                results = results.concat(res);
+                if (!--pending) {
+                  return done(null, results);
+                }
+              });
+            } else {
+              results.push(file);
+              if (!--pending) {
+                return done(null, results);
+              }
+            }
+          });
         });
-        return d.yay(simple);
-      }, failHook);
-    }, failHook);
+      });
+    };
+    absolutePathWalk = function(err, path) {
+      if (err != null) {
+        return d.nay(err);
+      }
+      return walk(path, function(err, out) {
+        if (err) {
+          return d.nay(err);
+        }
+        return d.yay(out);
+      });
+    };
+    fs.realpath(location, absolutePathWalk);
     return d;
   });
   return exports;

@@ -12,7 +12,7 @@
     promise = require 'promised-io'
     Deferred = promise.Deferred
 
-    fs = require 'promised-io/fs'
+    fs = require 'fs'
 
     ###*
     * The Auteur is the automaton that manages the differences between different implementations.
@@ -216,33 +216,53 @@
     __private '_testBookmark', ()->
         console.log "testBookmark", arguments
 
-    __private '_spiderDirectory', (location)->
+    __private '_spiderDirectory', (location, exclude, announce)->
+        self = @
+        unless exclude?
+            exclude = []
+        unless announce?
+            announce = []
+
         d = new Deferred()
         d.yay = _.once d.resolve
         d.nay = _.once d.reject
-        failHook = (e)->
-            d.nay e
-        path = fs.absolute location
-        fs.stat(path).then (stats)->
-            unless stats.isDirectory()
-                d.nay new Error "Expected to be given a directory."
-            fs.readdir(path).then (files)->
-                simple = {}
-                _(files).each (file)->
-                    local = {
-                        stat: fs.stat(file)
-                    }
-                    simple[file] = local
 
-                d.yay simple
-            , failHook
-        , failHook
+        walk = (dir, done)->
+            results = []
+            fs.readdir dir, (err, list)->
+                if err
+                    return done err
+                list = _.pull.apply _, [list].concat exclude
+                pending = list.length
+                unless pending
+                    return done null, results
+                _(list).each (file)->
+                    filename = file
+                    file = "#{dir}/#{file}"
+                    fs.stat file, (err, stat)->
+                        if _.contains announce, filename
+                            self.emit 'fileMatch', filename
+                        if stat?.isDirectory?()
+                            walk file, (err, res)->
+                                if err?
+                                    return done err
+                                results = results.concat res
+                                unless --pending
+                                    return done null, results
+                        else
+                            results.push file
+                            unless --pending
+                                return done null, results
 
-
+        absolutePathWalk = (err, path)->
+            if err?
+                return d.nay err
+            walk path, (err, out)->
+                if err
+                    return d.nay err
+                return d.yay out
+        fs.realpath location, absolutePathWalk
         return d
-
-
-
 
     return exports
 
