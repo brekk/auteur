@@ -14,6 +14,12 @@
 
     fs = require 'fs'
 
+    postpone = ()->
+        d = new Deferred()
+        d.yay = _.once d.resolve
+        d.nay = _.once d.reject
+        return d
+
     ###*
     * The Auteur is the automaton that manages the differences between different implementations.
     * It behaves as a singleton (per thread/process), and is modeled after gulp and winston.
@@ -32,7 +38,7 @@
 
     # our define function is a simple wrapper around an Object.defineProperty call
     # and we reuse this function in each of the double-underscored methods below
-    define = (prop, value, settings, onObject)->
+    __define = (prop, value, settings, onObject)->
         unless onObject?
             onObject = auteur
         settings = _.assign {
@@ -46,7 +52,7 @@
 
     # e: 1, w: 1, c: 1
     __mutable = (prop, value)->
-        define prop, value
+        __define prop, value
 
     # e: 0, w: 1, c: 0
     __private = (prop, value)->
@@ -55,7 +61,7 @@
             writable: true
             configurable: false
         }
-        define prop, value, settings
+        __define prop, value, settings
 
     # e: 1, w: 0, c: 0
     __public = (prop, value)->
@@ -64,7 +70,7 @@
             writable: false
             configurable: false
         }
-        define prop, value, settings
+        __define prop, value, settings
 
     # e: 1, w: 1, c: 0
     __writable = (prop, value)->
@@ -73,7 +79,7 @@
             writable: true
             configurable: false
         }
-        define prop, value, settings
+        __define prop, value, settings
 
     # e: 0, w: 0, c: 0
     __constant = (prop, value)->
@@ -82,7 +88,7 @@
             writable: false
             configurable: false
         }
-        define prop, value, settings
+        __define prop, value, settings
 
     # e: 0, w: 0, c: 1
     __protected = (prop, value)->
@@ -97,7 +103,7 @@
     __hiddenContext = {}
     __hidden = (prop, value)->
         unless __hiddenContext[prop]?
-            define prop, value, {}, __hiddenContext
+            __define prop, value, {}, __hiddenContext
             return true
         return false
 
@@ -118,8 +124,12 @@
         _CLASS_BOOKMARK: 'bookmark'
     }
 
+    fileConstants = {
+        _FILE_CONFIG: '.raconfig'
+    }
+
     # assign each constant
-    _(classConstants).each (value, key)->
+    _(classConstants).merge(fileConstants).each (value, key)->
         __constant key, value
 
     ###*
@@ -216,6 +226,124 @@
     __private '_testBookmark', ()->
         console.log "testBookmark", arguments
 
+    __mutable 'exclusions', [
+        'node_modules'
+        '.git'
+        '.svn'
+    ]
+
+    __mutable 'fileHooks', [
+        auteur._FILE_CONFIG
+    ]
+
+    __constant '_CONFIG_CONSTANT', {
+        project: ''
+        user: {
+            name: ''
+            fullname: ''
+        }
+        directories: {
+            posts: 'posts'
+            assets: 'assets'
+        }
+    }
+
+    __mutable 'config', _.assign auteur._CONFIG_CONSTANT, {}
+
+    # this object will take the form {longFlag: shortFlag}
+    __constant '_FLAGS', {
+        project: 'p'
+        posts: 'o'
+        assets: 'a'
+    }
+
+    __private '_normalizeFlags', (flagObject)->
+        self = @
+        keys = _.keys @_FLAGS
+        flags = _.values @_FLAGS
+        inverted = _.invert @_FLAGS
+        normalized = _(flagObject).map((value, key)->
+            normal = {}
+            if _.contains(keys, key) or _.contains(flags, key)
+                longFlag = inverted[key]
+                unless longFlag?
+                    longFlag = inverted[self._FLAGS[key]]
+                normal[longFlag] = value
+            return normal
+        ).compact().reduce (carrier, value, index, carried)->
+            carrier[_(value).keys().first()] = _(value).values().first()
+            return carrier
+        , {}
+
+    __public 'invoke', (settings)->
+        self = @
+        if settings.project?
+            self.config.project = settings.project
+        if settings.posts?
+            self.config.posts = settings.posts
+        if settings.assets?
+            self.config.assets = settings.assets
+        console.log "invocation vacation", self
+
+
+    __public 'cli', ()->
+        argv = require('minimist') process.argv.slice 2
+        argv = @_normalizeFlags argv
+        return auteur.invoke argv
+
+    __private '_generateConfig', (where)->
+        d = postpone()
+        filename = where + '/.raconfig'
+        self = @
+        fs.writeFile filename, JSON.stringify(@config, null, 4), (err)->
+            if err?
+                d.nay err
+            self.emit 'file:written', filename
+            self.emit 'file:written:config', true
+            d.yay filename
+        return d
+
+    __private '_readConfig', (file)->
+        d = postpone()
+        self = @
+        fs.readFile file.path, 'utf8', (err, obj)->
+            if err
+                d.nay err
+                return
+            data = JSON.parse obj
+            console.log "this is the data in the config object!", data
+            self.config = data
+            d.yay data
+            return
+        return d
+
+    __public 'rebuild', (path, exclusions, announce)->
+        unless path?
+            path = process.cwd()
+        unless exclusions?
+            exclusions = @exclusions
+        unless announce?
+            announce = []
+        self = @
+        announce = _.union announce, @fileHooks
+        @once 'file:match', (match)->
+            if match.name is self._FILE_CONFIG
+                console.log "found a magic config file!", match
+                self._readConfig(match).then (data)->
+                    console.log "the files are in the computer?!?", data
+                , (err)->
+                    console.log "the files aren't in the computer", err
+                    if err.stack?
+                        console.log err.stack
+        return @_spiderDirectory path, exclusions, announce
+
+    ###*
+    * 
+    * @method _spiderDirectory
+    * @param {String} location - the directory to walk
+    * @param {Array} exclusions - an array of file/dirnames to exclude from the walk
+    * @param {Array} announce - an array of file/dirnames to announce when found
+    ###
     __private '_spiderDirectory', (location, exclude, announce)->
         self = @
         unless exclude?
@@ -223,9 +351,7 @@
         unless announce?
             announce = []
 
-        d = new Deferred()
-        d.yay = _.once d.resolve
-        d.nay = _.once d.reject
+        d = postpone()
 
         walk = (dir, done)->
             results = []
@@ -241,7 +367,16 @@
                     file = "#{dir}/#{file}"
                     fs.stat file, (err, stat)->
                         if _.contains announce, filename
-                            self.emit 'fileMatch', filename
+                            self.emit 'file:match', {
+                                path: file
+                                name: filename
+                                stat: stat
+                            }
+                            self.emit "file:match:#{filename}", {
+                                path: file
+                                name: filename
+                                stat: stat
+                            }
                         if stat?.isDirectory?()
                             walk file, (err, res)->
                                 if err?
