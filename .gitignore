@@ -1,7 +1,15 @@
+# node stuff
 node_modules
 
+# log stuff
 logs
 *.log
 
 # source files live in src, but lib is compiled
 lib
+
+# source files shouldn't be *.js in src
+src/*.js
+
+# osx nonsense
+.DS_Store

@@ -2,9 +2,19 @@
   "name": "auteur",
   "version": "0.0.1",
   "description": "auteur is the management interface for automating and generating raconteur instances.",
-  "main": "auteur.js",
+  "main": "index.js",
+  "directories": {
+    "lib": "./lib",
+    "src": "./src"
+  },
   "scripts": {
-    "test": "mocha --reporter spec"
+    "test": "mocha --reporter spec",
+    "build": "coffee --compile --output lib/ src/",
+    "preinstall": "npm run build",
+    "clean": "(rm src/*.js || true) && (rm -Rf lib || true)"
+  },
+  "bin": {
+    "auteur": "./bin/auteur"
   },
   "keywords": [
     "auteur",
@@ -27,6 +37,14 @@
   "dependencies": {
     "lodash": "^2.4.1",
     "pkginfo": "^0.3.0",
-    "promised-io": "^0.3.4"
+    "promised-io": "^0.3.4",
+    "liftoff": "^0.13.5",
+    "minimist": "^1.1.0",
+    "interpret": "^0.3.7",
+    "semver": "^4.1.0",
+    "chalk": "^0.5.1"
+  },
+  "devDependencies": {
+    "coffee-script": "^1.8.0"
   }
 }
