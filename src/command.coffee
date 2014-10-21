@@ -60,18 +60,19 @@ ___.private '_readFlags', (flags)->
     # if no color is raised, use our mock chalk
     if flags['no-color']?
         chalk = crayon
-    if flags._?
+    if flags._? and 0 < _.size flags._
         # find a valid instruction
         instruction = _(flags._).filter((x)->
             match = _.contains auteur._VALID_COMMANDS, x
             return match
         ).first()
         console.log "the instruction is:", instruction
-        args = _.rest flags._
-        console.log "the args are", args
-        if auteur[instruction]?
-            auteur[instruction].apply auteur, args
-        return
+        if instruction?
+            args = _.rest flags._
+            console.log "the args are", args
+            if auteur[instruction]?
+                auteur[instruction].apply auteur, args
+            return
 
     if flags.help?
         return displayHelp chalk
@@ -93,7 +94,6 @@ ___.private '_readFlags', (flags)->
 ###
 ___.private '_normalizeFlags', (flagObject)->
     self = @
-    console.log "flaggable", flagObject
     flagConstant = @_CLI_FLAGS
     keys = _.keys flagConstant
     flags = _.values flagConstant
@@ -120,8 +120,6 @@ ___.private '_normalizeFlags', (flagObject)->
     return normalized
 
 argv = auteur._normalizeFlags require('minimist') process.argv.slice 2
-
-console.log argv, 'varg!'
 
 launchSequence = {
     name: 'auteur'
