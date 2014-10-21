@@ -10,6 +10,7 @@ auteur = require './auteur'
 chalk = require 'chalk'
 
 cliPackage = require '../package'
+
 _ = require 'lodash'
 
 # gimme a scope
@@ -17,6 +18,7 @@ ___ = require('./parkplace').scope auteur
 
 # this object will take the form {longFlag: shortFlag}
 ___.constant '_CLI_FLAGS',
+    cwd: 'w'
     "no-color": 'n'
     make: 'm'
     test: 't'
@@ -29,6 +31,7 @@ _(chalk.styles).each (fx, method)->
         return _.toArray(arguments).join ' '
 ###
 AUTEUR
+  * -w, --cwd <path> - use path as current working directory
   * -n, --no-color - use output without colors
   * -m, --make <project> - create 
   * -t, --test - test current directory
@@ -37,6 +40,7 @@ AUTEUR
 ###
 displayHelp = (chalk)->
     console.log chalk.underline 'AUTEUR'
+    console.log " ", chalk.gray "-w, --cwd <path>", chalk.white "- use path as current working directory"
     console.log " ", chalk.red "-n, --no-color", chalk.white "- use output without colors"
     console.log " ", chalk.magenta "-m, --make <project>", chalk.white "- create "
     console.log " ", chalk.cyan "-t, --test", chalk.white "- test current directory"
@@ -44,15 +48,37 @@ displayHelp = (chalk)->
     console.log " ", chalk.green "-h, --help", chalk.white "- the content you're currently reading"
     return
 
-___.private '_readFlag', (flags)->
-    if flags?['no-color']?
+___.constant '_VALID_COMMANDS', [
+    'create'
+    'test'
+    'convert'
+]
+
+___.private '_readFlags', (flags)->
+    unless flags?
+        return
+    # if no color is raised, use our mock chalk
+    if flags['no-color']?
         chalk = crayon
-    if flags?.help?
+    if flags._?
+        # find a valid instruction
+        instruction = _(flags._).filter((x)->
+            match = _.contains auteur._VALID_COMMANDS, x
+            return match
+        ).first()
+        console.log "the instruction is:", instruction
+        args = _.rest flags._
+        console.log "the args are", args
+        if auteur[instruction]?
+            auteur[instruction].apply auteur, args
+        return
+
+    if flags.help?
         return displayHelp chalk
-    else if flags?.create?
+    else if flags.create?
         console.log 'create?'
         return
-    else if flags?.convert?
+    else if flags.convert?
         console.log 'convert?'
         return
     return displayHelp chalk
@@ -67,6 +93,7 @@ ___.private '_readFlag', (flags)->
 ###
 ___.private '_normalizeFlags', (flagObject)->
     self = @
+    console.log "flaggable", flagObject
     flagConstant = @_CLI_FLAGS
     keys = _.keys flagConstant
     flags = _.values flagConstant
@@ -74,6 +101,8 @@ ___.private '_normalizeFlags', (flagObject)->
     # normalize all the flags
     # regardless of whether the long or short flag was used
     mapFlagsToLong = (value, key)->
+        if key is '_'
+            return {_: value}
         if _.contains(keys, key) or _.contains(flags, key)
             normal = {}
             longFlag = inverted[key]
@@ -91,6 +120,8 @@ ___.private '_normalizeFlags', (flagObject)->
     return normalized
 
 argv = auteur._normalizeFlags require('minimist') process.argv.slice 2
+
+console.log argv, 'varg!'
 
 launchSequence = {
     name: 'auteur'
@@ -116,16 +147,15 @@ onRequireFail = (name, err)->
     if err.stack?
         console.log err.stack
 
-cli.on 'require', onRequire
-   .on 'requireFail', onRequireFail
-
-cli.launch {
+launchcode = {
     cwd: argv.cwd
-}, (env)->
+}
+
+processArguments = (env)->
     instance = auteur
     # instance = require env.modulePath
     process.nextTick ()->
-        instance._readFlag argv
+        instance._readFlags argv
         process.exit 1
     # if @configPath
     #     process.chdir @configBase
@@ -133,5 +163,9 @@ cli.launch {
     # else
     #     console.log "No .raconfig file found. Run `auteur create config` to generate one."
     #     process.exit(1)
+
+cli.on 'require', onRequire
+   .on 'requireFail', onRequireFail
+   .launch launchcode, processArguments
 
 module.exports = cli
