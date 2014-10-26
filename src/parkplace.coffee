@@ -15,6 +15,8 @@ exports.define = (prop, value, settings, onObject)->
     }, settings
     if value?
         settings.value = value
+    # for convenience, the onObject passes through the scope function's wrapper
+    # so that you don't have to establish a separate variable for it
     unless _.isObject onObject
         scope = exports.lookupHidden('scope')
         if scope?

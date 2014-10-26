@@ -48,6 +48,8 @@ PROPERTY DEFINITIONS!
 ###
 ___ = require('./parkplace').scope auteur
 
+___.constant 'fs', fs
+
 ###
 CONSTANTS
 ###
@@ -60,11 +62,13 @@ classConstants = {
 }
 
 fileConstants = {
-    _FILE_CONFIG: '.raconfig'
+    _FILE_CONFIG: 'raconfig.json'
 }
 
 # assign each constant
-_(classConstants).merge(fileConstants).each (value, key)->
+# we use _.assign here to make sure that our original
+# classConstants variable doesn't mutate
+_({}).assign(classConstants).merge(fileConstants).each (value, key)->
     ___.constant key, value
 
 ###*
@@ -140,8 +144,11 @@ ___.private '_createAuthor', ()->
 ___.private '_createBookmark', ()->
     console.log "createBookmark", arguments
 
+___.public 'testDirectory', ()->
+
 ___.public 'test', (kind)->
     @throwOnInvalidClass kind
+    console.log @config, "<<< this that json?"
     args = _.rest arguments
     console.log ">> auteur test #{kind}"
     methodName = '_test' + capitalize kind
@@ -198,7 +205,7 @@ ___.constant '_CONFIG_CONSTANT', {
 * @property config
 * @public
 ###
-___.mutable 'config', _.assign auteur._CONFIG_CONSTANT, {}
+___.mutable 'config', _.assign {}, auteur._CONFIG_CONSTANT
 
 ___.private '_generateConfig', (where)->
     d = postpone()
@@ -246,17 +253,72 @@ ___.public 'rebuild', (path, exclusions, announce)->
                     console.log err.stack
     return @_spiderDirectory path, exclusions, announce
 
+___.private '_announceFileMatches', (data)->
+    self = @
+    {announce, file, dir, filename, stat} = data
+    dirParts = dir.split '/'
+    emitFileMatch = (pointer)->
+        info = {
+            path: file
+            name: filename
+            stat: stat
+        }
+        if pointer?
+            info.match = pointer
+            self.emit "file:match:#{pointer}", info
+        self.emit 'file:match', info
+        self.emit "file:match:#{filename}", info
+    emitDirectoryMatch = (pointer)->
+        last = _.last dirParts
+        info = {
+            path: file
+            name: dir
+            dir: last
+            stat: stat
+        }
+        if pointer?
+            info.match = pointer
+            self.emit "directory:match:#{pointer}", info
+        self.emit 'directory:match', info
+        self.emit "directory:match:#{last}", info
+    isDirectory = stat.isDirectory()
+    _(announce).each (announcement)->
+        if announcement is filename
+            emitFileMatch announcement
+            return
+        # wildcard matching
+        if -1 < announcement.indexOf '*'
+            parts = announcement.split '.'
+            # we have a wildcard
+            unless isDirectory # files only
+                currDir = _.last dirParts
+                if announcement is currDir + '/*'
+                    emitDirectoryMatch currDir
+                    emitFileMatch currDir + '/*'
+                    return
+                if parts.length > 1                    
+                    if parts[1]?
+                        if announcement is currDir + '/*.' + parts[1]
+                            emitDirectoryMatch currDir
+                            emitFileMatch currDir + '/*.' + parts[1]
+                        if announcement is "*." + parts[1]
+                            emitFileMatch '*.' + parts[1]
+                            return
+                    if parts[0]?
+                        if announcement is parts[0] + ".*"
+                            emitFileMatch parts[0] + ".*"
+                            return
+
 ###*
 * Recursively walk a directory, while announcing the existence of specified files (optionally filterable)
 * @method _spiderDirectory
 * @private
 * @param {String} location - the directory to walk
 * @param {Array} exclusions - an array of file/dirnames to exclude from the walk
-* @param {Array} announce - an array of file/dirnames to announce when found
+* @param {Array} announce - an array of file/dirnames to announce when found, matches file wildcards (*) but not globs (**) or directory wildcards (dir/*) (yet)
 ###
 ___.private '_spiderDirectory', (location, exclude=[], announce=[])->
     self = @
-
     d = postpone()
 
     walk = (dir, done)->
@@ -272,17 +334,16 @@ ___.private '_spiderDirectory', (location, exclude=[], announce=[])->
                 filename = file
                 file = "#{dir}/#{file}"
                 fs.stat file, (err, stat)->
-                    if _.contains announce, filename
-                        self.emit 'file:match', {
-                            path: file
-                            name: filename
-                            stat: stat
-                        }
-                        self.emit "file:match:#{filename}", {
-                            path: file
-                            name: filename
-                            stat: stat
-                        }
+                    if err
+                        d.nay err
+                        return
+                    self._announceFileMatches {
+                        announce: announce
+                        file: file
+                        dir: dir
+                        filename: filename
+                        stat: stat
+                    }
                     if stat?.isDirectory?()
                         walk file, (err, res)->
                             if err?

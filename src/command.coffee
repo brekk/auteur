@@ -6,6 +6,7 @@
 Liftoff = require 'liftoff'
 interpret = require 'interpret'
 auteur = require './auteur'
+fs = auteur.fs
 
 chalk = require 'chalk'
 
@@ -29,6 +30,11 @@ crayon = {}
 _(chalk.styles).each (fx, method)->
     crayon[method] = (x)->
         return _.toArray(arguments).join ' '
+
+grayscale = (flags)->
+    if flags['no-color']?
+        chalk = crayon
+
 ###
 AUTEUR
   * -w, --cwd <path> - use path as current working directory
@@ -57,9 +63,7 @@ ___.constant '_VALID_COMMANDS', [
 ___.private '_readFlags', (flags)->
     unless flags?
         return
-    # if no color is raised, use our mock chalk
-    if flags['no-color']?
-        chalk = crayon
+    grayscale flags
     if flags._? and 0 < _.size flags._
         # find a valid instruction
         instruction = _(flags._).filter((x)->
@@ -70,6 +74,8 @@ ___.private '_readFlags', (flags)->
         if instruction?
             args = _.rest flags._
             console.log "the args are", args
+            if instruction is 'test'
+                instruction = 'testDirectory'
             if auteur[instruction]?
                 auteur[instruction].apply auteur, args
             return
@@ -82,8 +88,37 @@ ___.private '_readFlags', (flags)->
     else if flags.convert?
         console.log 'convert?'
         return
+    else if flags.test?
+        console.log 'test?'
+        return
     return displayHelp chalk
-    
+
+
+___.private '_readFlagsWithContext', (flags, context)->
+    grayscale flags
+    unless context?
+        return @_readFlags flags
+    {config, env} = context
+    @config = config
+    fileMatcher = (match)->
+        console.log match, 'matchypatchy filatchy'
+    @on 'file:match', fileMatcher
+
+    postMatcher = (match)->
+        console.log match, 'post patch match scratch'
+
+    @on 'directory:match:posts', postMatcher
+
+    exclusions = [
+        'node_modules'
+        '.git'
+        '.svn'
+    ]
+    announce = [
+        'posts/*'
+        'assets/*'
+    ]
+    return @_spiderDirectory env.cwd, exclusions, announce
 
 ###*
 * A method to reduce the given flags to valid sets 
@@ -150,11 +185,34 @@ launchcode = {
 }
 
 processArguments = (env)->
-    instance = auteur
-    # instance = require env.modulePath
+    # instance = auteur
+    grayscale argv
+    unless env.modulePath
+        console.log chalk.red "Local auteur not found in"
+        console.log chalk.magenta env.cwd, "\n"
+        console.log chalk.cyan 'Try running: npm i auteur'
+        return process.exit 1
+    instance = require env.modulePath
+    context = null
+    if env.configPath and env.configPath?
+        context =
+            config: require env.configPath
+            env: env
+    unless context?
+        console.log chalk.red "Unable to load raconfig.json file."
+        console.log chalk.magenta "Read documentation here: https://github.com/brekk/auteur"
+        return process.exit 1
+
+    proflag = instance._readFlagsWithContext argv, context
     process.nextTick ()->
-        instance._readFlags argv
-        process.exit 1
+        proflag.then (o)->
+            console.log "oh damn", o
+            process.exit 1
+        , (e)->
+            console.log "Error during flag reading", e
+            if e.stack?
+                console.log e.stack
+            process.exit 1
     # if @configPath
     #     process.chdir @configBase
     #     console.log "Setting current working directory", @configBase
