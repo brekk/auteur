@@ -13,6 +13,8 @@ chalk = require 'chalk'
 cliPackage = require '../package'
 
 _ = require 'lodash'
+tar = require 'tar'
+fstream = require 'fstream'
 
 # gimme a scope
 ___ = require('./parkplace').scope auteur
@@ -25,6 +27,7 @@ ___.constant '_CLI_FLAGS',
     test: 't'
     convert: 'c'
     help: 'h'
+    compress: 'z'
 
 crayon = {}
 _(chalk.styles).each (fx, method)->
@@ -42,6 +45,7 @@ AUTEUR
   * -m, --make <project> - create 
   * -t, --test - test current directory
   * -c, --convert <file> - convert file
+  * -z, --compress - compress posts and assets
   * -h, --help - this content
 ###
 displayHelp = (chalk)->
@@ -51,6 +55,7 @@ displayHelp = (chalk)->
     console.log " ", chalk.magenta "-m, --make <project>", chalk.white "- create "
     console.log " ", chalk.cyan "-t, --test", chalk.white "- test current directory"
     console.log " ", chalk.yellow "-c, --convert <file>", chalk.white "- convert file"
+    console.log " ", chalk.magenta "-z, --compress <file>", chalk.white "- compress posts and assets"
     console.log " ", chalk.green "-h, --help", chalk.white "- the content you're currently reading"
     return
 
@@ -58,7 +63,103 @@ ___.constant '_VALID_COMMANDS', [
     'create'
     'test'
     'convert'
+    'compress'
+    'uncompress'
 ]
+
+___.public 'uncompress', (fileIn, pathOut)->
+    d = @postpone()
+    unless fileIn?
+        d.nay throw new Error "Expected filename to be given."
+    else
+        console.log 'We gotta filename, bruh.'
+        onError = (err)->
+            d.nay err
+            console.log "An error occurred while uncompressing.", err
+            if err.stack?
+                console.log err.stack
+        onEnd = ()->
+            outcome = fileIn + ' uncompressed.'
+            console.log ">>", outcome
+            d.yay outcome
+        extractor = tar.Extract {path: pathOut}
+                       .on 'error', onError
+                       .on 'end', onEnd
+        fs.createReadStream fileIn
+          .on 'error', onError
+          .pipe extractor
+        console.log 'making readstreams, bro'
+    return d
+
+___.public 'compress', (path, fileOut)->
+    d = @postpone()
+    unless fileOut?
+        d.nay throw new Error "Expected filename to be given."
+    else
+        if -1 < fileOut.indexOf '.'
+            fileParts = fileOut.split '.'
+            fileParts[0] += '-' + @timecode()
+            fileOut = fileParts.join '.'
+        else
+            fileOut += '-' + @timecode()
+        directoryDestination = fs.createWriteStream fileOut
+        onError = (e)->
+            d.nay e
+            console.log "this error occurred.", e
+            if e.stack?
+                console.log e.stack
+        onSuccess = ()->
+            d.yay fileOut
+
+        packer = tar.Pack {noProprietary: true}
+                    .on 'error', onError
+                    .on 'end', onSuccess
+
+        fstream.Reader {path: path, type: "Directory"}
+               .on 'error', onError
+               .pipe packer
+               .pipe directoryDestination
+    return d
+
+___.public 'timecode', (time)->
+    unless time?
+        time = Date.now()
+    forcePrependZeroes = (z)->
+        if z < 10
+            return '0' + z
+        return '' + z
+    x = new Date()
+    y = x.getFullYear()
+    o = forcePrependZeroes x.getMonth() + 1
+    d = forcePrependZeroes x.getDate()
+    h = forcePrependZeroes x.getHours()
+    m = forcePrependZeroes x.getMinutes()
+    out = "#{o}#{d}#{y}-#{h}#{m}"
+    console.log out, 'odayhm'
+    return out
+
+___.private '_compressPosts', (path, fileOut)->
+    console.log "compress posts....", arguments
+    compressed = @compress path, fileOut
+    compressed.then (o)->
+        console.log "Wrote file: ", o
+    , (e)->
+        console.log "Threw error: ", e
+        if e.stack?
+            console.log e.stack
+
+___.private '_uncompressPosts', (fileIn, pathOut)->
+    console.log "uncompress posts....", arguments
+    pathOut = __dirname + '/posts-test'
+    uncompressed = @uncompress fileIn, pathOut
+    uncompressed.then (o)->
+        console.log "Untarred file: ", o
+    , (e)->
+        console.log "Threw error: ", e
+        if e.stack?
+            console.log e.stack
+    console.log "it's over!"
+
 
 ___.private '_readFlags', (flags)->
     unless flags?
@@ -76,6 +177,10 @@ ___.private '_readFlags', (flags)->
             console.log "the args are", args
             if instruction is 'test'
                 instruction = 'testDirectory'
+            if instruction is 'compress'
+                instruction = '_compressPosts'
+            if instruction is 'uncompress'
+                instruction = '_uncompressPosts'
             if auteur[instruction]?
                 auteur[instruction].apply auteur, args
             return
@@ -95,17 +200,19 @@ ___.private '_readFlags', (flags)->
 
 
 ___.private '_readFlagsWithContext', (flags, context)->
+    self = @
+    d = @postpone()
     grayscale flags
     unless context?
         return @_readFlags flags
     {config, env} = context
     @config = config
-    fileMatcher = (match)->
-        console.log match, 'matchypatchy filatchy'
-    @on 'file:match', fileMatcher
+    # fileMatcher = (match)->
+    #     console.log match, 'matchypatchy filatchy'
+    # @on 'file:match', fileMatcher
 
-    postMatcher = (match)->
-        console.log match, 'post patch match scratch'
+    postMatcher = (post)->
+        console.log post.path, '(found post)'
 
     @on 'directory:match:posts', postMatcher
 
@@ -118,7 +225,16 @@ ___.private '_readFlagsWithContext', (flags, context)->
         'posts/*'
         'assets/*'
     ]
-    return @_spiderDirectory env.cwd, exclusions, announce
+    web = @_spiderDirectory env.cwd, exclusions, announce
+    web.then (o)->
+        d.yay o
+    , (e)->
+        d.nay e
+        console.log "Error during flag reading.", e
+        if e.stack?
+            console.log e.stack
+    self._readFlags flags
+    return d
 
 ###*
 * A method to reduce the given flags to valid sets 

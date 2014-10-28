@@ -13,12 +13,6 @@ Deferred = promise.Deferred
 
 fs = require 'fs'
 
-postpone = ()->
-    d = new Deferred()
-    d.yay = _.once d.resolve
-    d.nay = _.once d.reject
-    return d
-
 ###*
 * The Auteur is the automaton that manages the differences between different raconteur implementations.
 * It behaves as a singleton (per thread/process), and is modeled after gulp and winston.
@@ -49,6 +43,14 @@ PROPERTY DEFINITIONS!
 ___ = require('./parkplace').scope auteur
 
 ___.constant 'fs', fs
+
+___.constant 'promise', promise
+
+___.private 'postpone', ()->
+    d = new Deferred()
+    d.yay = _.once d.resolve
+    d.nay = _.once d.reject
+    return d
 
 ###
 CONSTANTS
@@ -208,7 +210,7 @@ ___.constant '_CONFIG_CONSTANT', {
 ___.mutable 'config', _.assign {}, auteur._CONFIG_CONSTANT
 
 ___.private '_generateConfig', (where)->
-    d = postpone()
+    d = @postpone()
     filename = where + '/.raconfig'
     self = @
     fs.writeFile filename, JSON.stringify(@config, null, 4), (err)->
@@ -220,7 +222,7 @@ ___.private '_generateConfig', (where)->
     return d
 
 ___.private '_readConfig', (file)->
-    d = postpone()
+    d = @postpone()
     self = @
     fs.readFile file.path, 'utf8', (err, obj)->
         if err
@@ -319,7 +321,7 @@ ___.private '_announceFileMatches', (data)->
 ###
 ___.private '_spiderDirectory', (location, exclude=[], announce=[])->
     self = @
-    d = postpone()
+    d = @postpone()
 
     walk = (dir, done)->
         results = []
