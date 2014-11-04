@@ -8,11 +8,11 @@
     "src": "./src"
   },
   "scripts": {
-    "test": "mocha --reporter spec",
     "build": "coffee --compile --output lib/ src/",
     "build-test": "coffee --compile --output test/ src/test/",
+    "test": "npm run build-test && mocha --reporter spec",
     "preinstall": "npm run build",
-    "clean": "(rm src/*.js || true) && (rm -Rf lib || true)"
+    "clean": "(rm src/*.js || true) && (rm src/test/*.js || true) && (rm -Rf lib || true)"
   },
   "bin": {
     "auteur": "./bin/auteur"

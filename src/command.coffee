@@ -67,61 +67,6 @@ ___.constant '_VALID_COMMANDS', [
     'uncompress'
 ]
 
-___.public 'uncompress', (fileIn, pathOut)->
-    d = @postpone()
-    unless fileIn?
-        d.nay throw new Error "Expected filename to be given."
-    else
-        onError = (err)->
-            d.nay err
-            console.log "An error occurred while uncompressing.", err
-            if err.stack?
-                console.log err.stack
-        onEnd = ()->
-            outcome = fileIn + ' uncompressed.'
-            console.log outcome
-            d.yay outcome
-        options = {
-            path: pathOut
-        }
-        extractor = tar.Extract options
-                       .on 'error', onError
-                       .on 'end', onEnd
-        fs.createReadStream fileIn
-          .on 'error', onError
-          .pipe extractor
-    return d
-
-___.public 'compress', (path, fileOut)->
-    d = @postpone()
-    unless fileOut?
-        d.nay throw new Error "Expected filename to be given."
-    else
-        if -1 < fileOut.indexOf '.'
-            fileParts = fileOut.split '.'
-            fileParts[0] += '-' + @timecode()
-            fileOut = fileParts.join '.'
-        else
-            fileOut += '-' + @timecode()
-        directoryDestination = fs.createWriteStream fileOut
-        onError = (e)->
-            d.nay e
-            console.log "this error occurred.", e
-            if e.stack?
-                console.log e.stack
-        onSuccess = ()->
-            d.yay fileOut
-
-        packer = tar.Pack {noProprietary: true}
-                    .on 'error', onError
-                    .on 'end', onSuccess
-
-        fstream.Reader {path: path, type: "Directory"}
-               .on 'error', onError
-               .pipe packer
-               .pipe directoryDestination
-    return d
-
 ___.public 'timecode', (time)->
     unless time?
         time = Date.now()

@@ -2,19 +2,14 @@
     "base": {
         "name": "boardwalk"
     },
-    "define": {
-        "zip": {
+    "definitions": {
+        "mutable": {
             "prop": "zip",
             "value": "zipzipzip"
+        },
+        "private": {
+            "prop": "biggle",
+            "value": 8393920
         }
-    },
-    "scope": {},
-    "mutable": {},
-    "private": {},
-    "public": {},
-    "writable": {},
-    "constant": {},
-    "protected": {},
-    "hidden": {},
-    "lookupHidden": {}
+    }
 }

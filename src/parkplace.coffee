@@ -31,11 +31,18 @@ pp.scope = (ref)->
     delete scopedDefinition.scope
     delete scopedDefinition.hidden
     delete scopedDefinition.lookupHidden
-    scopedDefinition.has = (property)->
-        return ref.hasOwnProperty property
-    scopedDefinition.get = (property)->
+    scopedDefinition.has = (property, andHidden=false)->
+        hasOwn = ref.hasOwnProperty property
+        unless andHidden
+            return hasOwn
+        return hasOwn or pp.lookupHidden(property)?
+
+    scopedDefinition.get = (property, andHidden=false)->
         if @has property
             return ref[property]
+        else if andHidden
+            if @has property, andHidden
+                return pp.lookupHidden property
         return null
     pp.hidden 'scope', ref
     return scopedDefinition
@@ -105,7 +112,7 @@ pp.hidden = (prop, value, force=false)->
 pp.lookupHidden = (key)->
     if hiddenContext[key]?
         return hiddenContext[key]
-    return undefined
+    return null
 
 module.exports = pp
 return pp
