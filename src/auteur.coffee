@@ -18,7 +18,7 @@ fs = require 'fs'
 * It behaves as a singleton (per thread/process), and is modeled after gulp and winston.
 * @class Auteur
 ###
-auteur = exports
+auteur = module.exports = {}
 
 # expose version
 require('pkginfo')(module, 'version')

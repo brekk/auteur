@@ -72,7 +72,6 @@ ___.public 'uncompress', (fileIn, pathOut)->
     unless fileIn?
         d.nay throw new Error "Expected filename to be given."
     else
-        console.log 'We gotta filename, bruh.'
         onError = (err)->
             d.nay err
             console.log "An error occurred while uncompressing.", err
@@ -80,15 +79,17 @@ ___.public 'uncompress', (fileIn, pathOut)->
                 console.log err.stack
         onEnd = ()->
             outcome = fileIn + ' uncompressed.'
-            console.log ">>", outcome
+            console.log outcome
             d.yay outcome
-        extractor = tar.Extract {path: pathOut}
+        options = {
+            path: pathOut
+        }
+        extractor = tar.Extract options
                        .on 'error', onError
                        .on 'end', onEnd
         fs.createReadStream fileIn
           .on 'error', onError
           .pipe extractor
-        console.log 'making readstreams, bro'
     return d
 
 ___.public 'compress', (path, fileOut)->
@@ -135,11 +136,9 @@ ___.public 'timecode', (time)->
     h = forcePrependZeroes x.getHours()
     m = forcePrependZeroes x.getMinutes()
     out = "#{o}#{d}#{y}-#{h}#{m}"
-    console.log out, 'odayhm'
     return out
 
 ___.private '_compressPosts', (path, fileOut)->
-    console.log "compress posts....", arguments
     compressed = @compress path, fileOut
     compressed.then (o)->
         console.log "Wrote file: ", o
@@ -150,20 +149,25 @@ ___.private '_compressPosts', (path, fileOut)->
 
 ___.private '_uncompressPosts', (fileIn, pathOut)->
     console.log "uncompress posts....", arguments
-    pathOut = __dirname + '/posts-test'
-    uncompressed = @uncompress fileIn, pathOut
-    uncompressed.then (o)->
-        console.log "Untarred file: ", o
-    , (e)->
-        console.log "Threw error: ", e
-        if e.stack?
-            console.log e.stack
-    console.log "it's over!"
+    self = @
+    cwd = process.cwd()
+    fileIn = cwd + '/' + fileIn
+    pathOut = cwd
+    fs.realpath fileIn, (err, path)->
+        uncompressed = self.uncompress fileIn, pathOut
+        uncompressed.then (o)->
+            console.log "Untarred file: ", o
+        , (e)->
+            console.log "Threw error: ", e
+            if e.stack?
+                console.log e.stack
+        console.log "it's over!"
 
 
 ___.private '_readFlags', (flags)->
     unless flags?
         return
+    cwd = process.cwd()
     grayscale flags
     if flags._? and 0 < _.size flags._
         # find a valid instruction
@@ -179,6 +183,7 @@ ___.private '_readFlags', (flags)->
                 instruction = 'testDirectory'
             if instruction is 'compress'
                 instruction = '_compressPosts'
+                args = [cwd + '/posts', 'posts.racontar']
             if instruction is 'uncompress'
                 instruction = '_uncompressPosts'
             if auteur[instruction]?
