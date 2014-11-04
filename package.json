@@ -10,6 +10,7 @@
   "scripts": {
     "test": "mocha --reporter spec",
     "build": "coffee --compile --output lib/ src/",
+    "build-test": "coffee --compile --output test/ src/test/",
     "preinstall": "npm run build",
     "clean": "(rm src/*.js || true) && (rm -Rf lib || true)"
   },
@@ -44,9 +45,12 @@
     "semver": "^4.1.0",
     "chalk": "^0.5.1",
     "tar": "^1.0.2",
-    "fstream": "^1.0.2"
+    "fstream": "^1.0.2",
+    "simple-glob": "^0.1.0"
   },
   "devDependencies": {
-    "coffee-script": "^1.8.0"
+    "coffee-script": "^1.8.0",
+    "assert": "^1.1.2",
+    "should": "^4.1.0"
   }
 }

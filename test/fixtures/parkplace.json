@@ -1,0 +1,20 @@
+{
+    "base": {
+        "name": "boardwalk"
+    },
+    "define": {
+        "zip": {
+            "prop": "zip",
+            "value": "zipzipzip"
+        }
+    },
+    "scope": {},
+    "mutable": {},
+    "private": {},
+    "public": {},
+    "writable": {},
+    "constant": {},
+    "protected": {},
+    "hidden": {},
+    "lookupHidden": {}
+}

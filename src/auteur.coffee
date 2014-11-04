@@ -13,6 +13,8 @@ Deferred = promise.Deferred
 
 fs = require 'fs'
 
+glob = require 'simple-glob'
+
 ###*
 * The Auteur is the automaton that manages the differences between different raconteur implementations.
 * It behaves as a singleton (per thread/process), and is modeled after gulp and winston.
@@ -255,19 +257,77 @@ ___.public 'rebuild', (path, exclusions, announce)->
                     console.log err.stack
     return @_spiderDirectory path, exclusions, announce
 
+___.public 'uncompress', (fileIn, pathOut)->
+    d = @postpone()
+    unless fileIn?
+        d.nay throw new Error "Expected filename to be given."
+    else
+        onError = (err)->
+            d.nay err
+            console.log "An error occurred while uncompressing.", err
+            if err.stack?
+                console.log err.stack
+        onEnd = ()->
+            outcome = fileIn + ' uncompressed.'
+            console.log outcome
+            d.yay outcome
+        options = {
+            path: pathOut
+        }
+        extractor = tar.Extract options
+                       .on 'error', onError
+                       .on 'end', onEnd
+        fs.createReadStream fileIn
+          .on 'error', onError
+          .pipe extractor
+    return d
+
+___.public 'compress', (path, fileOut)->
+    d = @postpone()
+    unless fileOut?
+        d.nay throw new Error "Expected filename to be given."
+    else
+        if -1 < fileOut.indexOf '.'
+            fileParts = fileOut.split '.'
+            fileParts[0] += '-' + @timecode()
+            fileOut = fileParts.join '.'
+        else
+            fileOut += '-' + @timecode()
+        directoryDestination = fs.createWriteStream fileOut
+        onError = (e)->
+            d.nay e
+            console.log "this error occurred.", e
+            if e.stack?
+                console.log e.stack
+        onSuccess = ()->
+            d.yay fileOut
+
+        packer = tar.Pack {noProprietary: true}
+                    .on 'error', onError
+                    .on 'end', onSuccess
+
+        fstream.Reader {path: path, type: "Directory"}
+               .on 'error', onError
+               .pipe packer
+               .pipe directoryDestination
+    return d
+
 ___.private '_announceFileMatches', (data)->
     self = @
     {announce, file, dir, filename, stat} = data
     dirParts = dir.split '/'
-    emitFileMatch = (pointer)->
+    emitFileMatch = (pointer, match)->
         info = {
             path: file
             name: filename
             stat: stat
         }
         if pointer?
-            info.match = pointer
+            info.pointer = pointer
             self.emit "file:match:#{pointer}", info
+        if match?
+            info.match = match
+            self.emit "file:match:#{match}", info
         self.emit 'file:match', info
         self.emit "file:match:#{filename}", info
     emitDirectoryMatch = (pointer)->
@@ -288,28 +348,38 @@ ___.private '_announceFileMatches', (data)->
         if announcement is filename
             emitFileMatch announcement
             return
-        # wildcard matching
-        if -1 < announcement.indexOf '*'
-            parts = announcement.split '.'
-            # we have a wildcard
-            unless isDirectory # files only
+        x = glob announcement
+        if 0 < _.size x
+            _(x).each (match)->
                 currDir = _.last dirParts
-                if announcement is currDir + '/*'
-                    emitDirectoryMatch currDir
-                    emitFileMatch currDir + '/*'
-                    return
-                if parts.length > 1                    
-                    if parts[1]?
-                        if announcement is currDir + '/*.' + parts[1]
-                            emitDirectoryMatch currDir
-                            emitFileMatch currDir + '/*.' + parts[1]
-                        if announcement is "*." + parts[1]
-                            emitFileMatch '*.' + parts[1]
-                            return
-                    if parts[0]?
-                        if announcement is parts[0] + ".*"
-                            emitFileMatch parts[0] + ".*"
-                            return
+                emitDirectoryMatch currDir
+                unless isDirectory
+                    emitFileMatch match, announcement
+                
+
+
+        # # wildcard matching
+        # if -1 < announcement.indexOf '*'
+        #     parts = announcement.split '.'
+        #     # we have a wildcard
+        #     unless isDirectory # files only
+        #         currDir = _.last dirParts
+        #         if announcement is currDir + '/*'
+        #             emitDirectoryMatch currDir
+        #             emitFileMatch currDir + '/*'
+        #             return
+        #         if parts.length > 1                    
+        #             if parts[1]?
+        #                 if announcement is currDir + '/*.' + parts[1]
+        #                     emitDirectoryMatch currDir
+        #                     emitFileMatch currDir + '/*.' + parts[1]
+        #                 if announcement is "*." + parts[1]
+        #                     emitFileMatch '*.' + parts[1]
+        #                     return
+        #             if parts[0]?
+        #                 if announcement is parts[0] + ".*"
+        #                     emitFileMatch parts[0] + ".*"
+        #                     return
 
 ###*
 * Recursively walk a directory, while announcing the existence of specified files (optionally filterable)

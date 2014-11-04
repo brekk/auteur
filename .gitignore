@@ -13,3 +13,8 @@ src/*.js
 
 # osx nonsense
 .DS_Store
+
+# ignore test, but not test/fixtures
+test
+!test/fixtures/*.json
+!src/test
