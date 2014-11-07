@@ -42,7 +42,7 @@ PROPERTY DEFINITIONS!
       ___.constant
       ___.protected
 ###
-___ = require('./parkplace').scope auteur
+___ = require('parkplace').scope auteur
 
 ___.constant 'fs', fs
 

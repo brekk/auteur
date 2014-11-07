@@ -17,7 +17,7 @@ tar = require 'tar'
 fstream = require 'fstream'
 
 # gimme a scope
-___ = require('./parkplace').scope auteur
+___ = require('parkplace').scope auteur
 
 # this object will take the form {longFlag: shortFlag}
 ___.constant '_CLI_FLAGS',

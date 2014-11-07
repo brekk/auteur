@@ -36,21 +36,21 @@
   },
   "homepage": "https://github.com/brekk/auteur",
   "dependencies": {
+    "chalk": "^0.5.1",
+    "fstream": "^1.0.2",
+    "interpret": "^0.3.7",
+    "liftoff": "^0.13.5",
     "lodash": "^2.4.1",
+    "minimist": "^1.1.0",
+    "parkplace": "^0.0.6",
     "pkginfo": "^0.3.0",
     "promised-io": "^0.3.4",
-    "liftoff": "^0.13.5",
-    "minimist": "^1.1.0",
-    "interpret": "^0.3.7",
     "semver": "^4.1.0",
-    "chalk": "^0.5.1",
-    "tar": "^1.0.2",
-    "fstream": "^1.0.2",
-    "simple-glob": "^0.1.0"
+    "simple-glob": "^0.1.0",
+    "tar": "^1.0.2"
   },
   "devDependencies": {
     "coffee-script": "^1.8.0",
-    "assert": "^1.1.2",
     "should": "^4.1.0"
   }
 }
