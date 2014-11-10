@@ -34,21 +34,24 @@ PROPERTY DEFINITIONS!
 ###
 # ! - "___" this is our object definition object
       Which gives us access to these methods:
-      ___.define
+      ___.define (objectDefition wrapper)
       ___.mutable
-      ___.private
-      ___.public
+      ___.writable
+      ___.secret
+      ___.open
       ___.writable
       ___.constant
       ___.protected
 ###
-___ = require('parkplace').scope auteur
+pp = require 'parkplace'
+
+___ = pp.scope auteur
 
 ___.constant 'fs', fs
 
 ___.constant 'promise', promise
 
-___.private 'postpone', ()->
+___.secret 'postpone', ()->
     d = new Deferred()
     d.yay = _.once d.resolve
     d.nay = _.once d.reject
@@ -84,8 +87,8 @@ ___.constant '_classes', _.values classConstants
 
 # let's get eventy (alias all EventEmitter methods as our own)
 _(emitter).methods().each (fxName)->
-    # all as non-configurable public methods
-    ___.public fxName, ()->
+    # all as non-configurable readable methods
+    ___.readable fxName, ()->
         emitter[fxName].apply auteur, arguments
 
 ###*
@@ -94,7 +97,7 @@ _(emitter).methods().each (fxName)->
 * @param {String} className - a possibly valid class name
 * @return {Boolean} validClass
 ###
-___.public 'isValidClass', (className)->
+___.readable 'isValidClass', (className)->
     unless _.isString className
         return false
     return _.contains auteur._classes, className.toLowerCase()
@@ -105,7 +108,7 @@ ___.public 'isValidClass', (className)->
 * @param {String} x - a possibly valid class name
 * @private
 ###
-___.private 'throwOnInvalidClass', (x)->
+___.secret 'throwOnInvalidClass', (x)->
     unless x?
         throw new TypeError "Expected class to be defined."
     unless _.isString x
@@ -122,12 +125,33 @@ capitalize = (x)->
         return capped
     return x
 
+___.readable 'timecode', (time)->
+    unless time?
+        time = Date.now()
+    forcePrependZeroes = (z)->
+        if z < 10
+            return '0' + z
+        return '' + z
+    x = new Date()
+    zone = _.last x.toString().split(' ')
+    y = x.getFullYear()
+    o = forcePrependZeroes x.getMonth() + 1
+    d = forcePrependZeroes x.getDate()
+    h = forcePrependZeroes x.getHours()
+    m = forcePrependZeroes x.getMinutes()
+    s = forcePrependZeroes x.getSeconds()
+    out = "#{o}#{d}#{y}-#{h}:#{m}:#{s} #{zone}"
+    return out
+
+___.open 'log', ()->
+    console.log.apply console, [@timecode() + ' -'].concat _.toArray arguments
+
 ###*
 * A validator and single location for calling a bunch of possible sub-functions
 * @method create
 * @param {String} kind - create what kinda thing?
 ###
-___.public 'create', (kind)->
+___.readable 'create', (kind)->
     @throwOnInvalidClass kind
     args = _.rest arguments
     console.log ">> auteur create #{kind}"
@@ -136,21 +160,21 @@ ___.public 'create', (kind)->
         return @[methodName].apply @, args
     throw new Error "Expected #{methodName} to be valid method."
 
-___.private '_createProject', ()->
+___.secret '_createProject', ()->
     console.log "createProject", arguments
 
-___.private '_createPost', ()->
+___.secret '_createPost', ()->
     console.log "createPost", arguments
 
-___.private '_createAuthor', ()->
+___.secret '_createAuthor', ()->
     console.log "createAuthor", arguments
 
-___.private '_createBookmark', ()->
+___.secret '_createBookmark', ()->
     console.log "createBookmark", arguments
 
-___.public 'testDirectory', ()->
+___.readable 'testDirectory', ()->
 
-___.public 'test', (kind)->
+___.readable 'test', (kind)->
     @throwOnInvalidClass kind
     console.log @config, "<<< this that json?"
     args = _.rest arguments
@@ -160,16 +184,16 @@ ___.public 'test', (kind)->
         return @[methodName].apply @, args
     throw new Error "Expected #{methodName} to be valid method."
 
-___.private '_testProject', ()->
+___.secret '_testProject', ()->
     console.log "testProject", arguments
 
-___.private '_testPost', ()->
+___.secret '_testPost', ()->
     console.log "testPost", arguments
 
-___.private '_testAuthor', ()->
+___.secret '_testAuthor', ()->
     console.log "testAuthor", arguments
 
-___.private '_testBookmark', ()->
+___.secret '_testBookmark', ()->
     console.log "testBookmark", arguments
 
 ___.mutable 'exclusions', [
@@ -211,7 +235,7 @@ ___.constant '_CONFIG_CONSTANT', {
 ###
 ___.mutable 'config', _.assign {}, auteur._CONFIG_CONSTANT
 
-___.private '_generateConfig', (where)->
+___.secret '_generateConfig', (where)->
     d = @postpone()
     filename = where + '/.raconfig'
     self = @
@@ -223,7 +247,7 @@ ___.private '_generateConfig', (where)->
         d.yay filename
     return d
 
-___.private '_readConfig', (file)->
+___.secret '_readConfig', (file)->
     d = @postpone()
     self = @
     fs.readFile file.path, 'utf8', (err, obj)->
@@ -237,7 +261,7 @@ ___.private '_readConfig', (file)->
         return
     return d
 
-___.public 'rebuild', (path, exclusions, announce)->
+___.readable 'rebuild', (path, exclusions, announce)->
     unless path?
         path = process.cwd()
     unless exclusions?
@@ -257,7 +281,7 @@ ___.public 'rebuild', (path, exclusions, announce)->
                     console.log err.stack
     return @_spiderDirectory path, exclusions, announce
 
-___.public 'uncompress', (fileIn, pathOut)->
+___.readable 'uncompress', (fileIn, pathOut)->
     d = @postpone()
     unless fileIn?
         d.nay throw new Error "Expected filename to be given."
@@ -282,7 +306,7 @@ ___.public 'uncompress', (fileIn, pathOut)->
           .pipe extractor
     return d
 
-___.public 'compress', (path, fileOut)->
+___.readable 'compress', (path, fileOut)->
     d = @postpone()
     unless fileOut?
         d.nay throw new Error "Expected filename to be given."
@@ -312,7 +336,7 @@ ___.public 'compress', (path, fileOut)->
                .pipe directoryDestination
     return d
 
-___.private '_announceFileMatches', (data)->
+___.secret '_announceFileMatches', (data)->
     self = @
     {announce, file, dir, filename, stat} = data
     dirParts = dir.split '/'
@@ -355,31 +379,6 @@ ___.private '_announceFileMatches', (data)->
                 emitDirectoryMatch currDir
                 unless isDirectory
                     emitFileMatch match, announcement
-                
-
-
-        # # wildcard matching
-        # if -1 < announcement.indexOf '*'
-        #     parts = announcement.split '.'
-        #     # we have a wildcard
-        #     unless isDirectory # files only
-        #         currDir = _.last dirParts
-        #         if announcement is currDir + '/*'
-        #             emitDirectoryMatch currDir
-        #             emitFileMatch currDir + '/*'
-        #             return
-        #         if parts.length > 1                    
-        #             if parts[1]?
-        #                 if announcement is currDir + '/*.' + parts[1]
-        #                     emitDirectoryMatch currDir
-        #                     emitFileMatch currDir + '/*.' + parts[1]
-        #                 if announcement is "*." + parts[1]
-        #                     emitFileMatch '*.' + parts[1]
-        #                     return
-        #             if parts[0]?
-        #                 if announcement is parts[0] + ".*"
-        #                     emitFileMatch parts[0] + ".*"
-        #                     return
 
 ###*
 * Recursively walk a directory, while announcing the existence of specified files (optionally filterable)
@@ -389,7 +388,7 @@ ___.private '_announceFileMatches', (data)->
 * @param {Array} exclusions - an array of file/dirnames to exclude from the walk
 * @param {Array} announce - an array of file/dirnames to announce when found, matches file wildcards (*) but not globs (**) or directory wildcards (dir/*) (yet)
 ###
-___.private '_spiderDirectory', (location, exclude=[], announce=[])->
+___.secret '_spiderDirectory', (location, exclude=[], announce=[])->
     self = @
     d = @postpone()
 

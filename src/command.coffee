@@ -37,6 +37,7 @@ _(chalk.styles).each (fx, method)->
 grayscale = (flags)->
     if flags['no-color']?
         chalk = crayon
+    return chalk
 
 ###
 AUTEUR
@@ -67,23 +68,7 @@ ___.constant '_VALID_COMMANDS', [
     'uncompress'
 ]
 
-___.public 'timecode', (time)->
-    unless time?
-        time = Date.now()
-    forcePrependZeroes = (z)->
-        if z < 10
-            return '0' + z
-        return '' + z
-    x = new Date()
-    y = x.getFullYear()
-    o = forcePrependZeroes x.getMonth() + 1
-    d = forcePrependZeroes x.getDate()
-    h = forcePrependZeroes x.getHours()
-    m = forcePrependZeroes x.getMinutes()
-    out = "#{o}#{d}#{y}-#{h}#{m}"
-    return out
-
-___.private '_compressPosts', (path, fileOut)->
+___.secret '_compressPosts', (path, fileOut)->
     compressed = @compress path, fileOut
     compressed.then (o)->
         console.log "Wrote file: ", o
@@ -92,7 +77,7 @@ ___.private '_compressPosts', (path, fileOut)->
         if e.stack?
             console.log e.stack
 
-___.private '_uncompressPosts', (fileIn, pathOut)->
+___.secret '_uncompressPosts', (fileIn, pathOut)->
     console.log "uncompress posts....", arguments
     self = @
     cwd = process.cwd()
@@ -109,21 +94,21 @@ ___.private '_uncompressPosts', (fileIn, pathOut)->
         console.log "it's over!"
 
 
-___.private '_readFlags', (flags)->
+___.secret '_readFlags', (flags)->
     unless flags?
         return
     cwd = process.cwd()
-    grayscale flags
+    chalk = grayscale flags
     if flags._? and 0 < _.size flags._
         # find a valid instruction
         instruction = _(flags._).filter((x)->
             match = _.contains auteur._VALID_COMMANDS, x
             return match
         ).first()
-        console.log "the instruction is:", instruction
+        @log "the instruction is:", chalk.red instruction
         if instruction?
             args = _.rest flags._
-            console.log "the args are", args
+            @log "the args are", args
             if instruction is 'test'
                 instruction = 'testDirectory'
             if instruction is 'compress'
@@ -138,18 +123,18 @@ ___.private '_readFlags', (flags)->
     if flags.help?
         return displayHelp chalk
     else if flags.create?
-        console.log 'create?'
+        @log 'create?'
         return
     else if flags.convert?
-        console.log 'convert?'
+        @log 'convert?'
         return
     else if flags.test?
-        console.log 'test?'
+        @log 'test?'
         return
     return displayHelp chalk
 
 
-___.private '_readFlagsWithContext', (flags, context)->
+___.secret '_readFlagsWithContext', (flags, context)->
     self = @
     d = @postpone()
     grayscale flags
@@ -193,7 +178,7 @@ ___.private '_readFlagsWithContext', (flags, context)->
 * @param {Object} flagObject - an object containing the flags
 * @return {Object} normalizedFlagObject - all of the flags will be long now.
 ###
-___.private '_normalizeFlags', (flagObject)->
+___.secret '_normalizeFlags', (flagObject)->
     self = @
     flagConstant = @_CLI_FLAGS
     keys = _.keys flagConstant

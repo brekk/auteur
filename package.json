@@ -8,8 +8,8 @@
     "src": "./src"
   },
   "scripts": {
-    "build": "coffee --compile --output lib/ src/",
-    "build-test": "coffee --compile --output test/ src/test/",
+    "build": "./node_modules/.bin/coffee --compile --output lib/ src/",
+    "build-test": "./node_modules/.bin/coffee --compile --output test/ src/test/",
     "test": "npm run build-test && mocha --reporter spec",
     "preinstall": "npm run build",
     "clean": "(rm src/*.js || true) && (rm src/test/*.js || true) && (rm -Rf lib || true)"
@@ -42,7 +42,7 @@
     "liftoff": "^0.13.5",
     "lodash": "^2.4.1",
     "minimist": "^1.1.0",
-    "parkplace": "^0.0.6",
+    "parkplace": "^0.0.8",
     "pkginfo": "^0.3.0",
     "promised-io": "^0.3.4",
     "semver": "^4.1.0",
